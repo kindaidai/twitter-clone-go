@@ -1,0 +1,9 @@
+version: "3"
+services:
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    command: go run ./server/main.go
+    volumes:
+      - .:/server
