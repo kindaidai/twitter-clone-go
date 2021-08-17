@@ -1,5 +1,18 @@
 version: "3"
 services:
+  mysql:
+    image: mysql:5.7
+    restart: always
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: sample
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+      TZ: "Asia/Tokyo"
+    volumes:
+      - ./mysql/db:/docker-entrypoint-initdb.d
   server:
     build:
       context: ./server
@@ -7,3 +20,5 @@ services:
     command: go run ./server/main.go
     volumes:
       - .:/server
+    depends_on:
+      - mysql
