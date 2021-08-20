@@ -2,23 +2,30 @@ version: "3"
 services:
   mysql:
     image: mysql:5.7
-    restart: always
-    ports:
-      - "3306:3306"
+    volumes:
+      - ./mysql/db:/docker-entrypoint-initdb.d
+      - ./mysql/db/my.cnf:/etc/mysql/conf.d/my.cnf
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: sample
-      MYSQL_USER: user
+      MYSQL_USER: sample_user
       MYSQL_PASSWORD: password
       TZ: "Asia/Tokyo"
-    volumes:
-      - ./mysql/db:/docker-entrypoint-initdb.d
+    ports:
+      - "3306:3306"
   server:
     build:
       context: ./server
       dockerfile: Dockerfile
-    command: go run ./server/main.go
+    environment:
+      MYSQL_HOST: mysql 
+      MYSQL_DATABASE: sample
+      MYSQL_USER: sample_user
+      MYSQL_PASS: password
+    tty: true
     volumes:
-      - .:/server
+      - ./server:/server
     depends_on:
       - mysql
+    ports:
+      - "8080:8080"

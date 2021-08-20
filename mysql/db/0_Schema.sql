@@ -1,10 +1,10 @@
 DROP DATABASE IF EXISTS `sample`;
 CREATE DATABASE `sample`;
 
-DROP TABLE IF EXISTS sample.user;
-DROP TABLE IF EXISTS sample.tweet;
+DROP TABLE IF EXISTS sample.users;
+DROP TABLE IF EXISTS sample.tweets;
 
-CREATE TABLE sample.user(
+CREATE TABLE sample.users(
     id BIGINT(20) NOT NULL AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(64) NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -12,28 +12,28 @@ CREATE TABLE sample.user(
     UNIQUE (name)
 );
 
-CREATE TABLE sample.tweet(
+CREATE TABLE sample.tweets(
     id BIGINT(20) NOT NULL AUTO_INCREMENT PRIMARY KEY,
     content VARCHAR(255) NOT NULL,
     user_id BIGINT(20) NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id)
-      REFERENCES user(id)
+      REFERENCES users(id)
       ON DELETE CASCADE
 );
 
-CREATE TABLE sample.follow(
+CREATE TABLE sample.follows(
     id BIGINT(20) NOT NULL AUTO_INCREMENT PRIMARY KEY,
     follower_id BIGINT(20) NOT NULL, 
     followed_id BIGINT(20) NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (follower_id)
-      REFERENCES user(id)
+      REFERENCES users(id)
       ON DELETE CASCADE,
     FOREIGN KEY (followed_id)
-      REFERENCES user(id)
+      REFERENCES users(id)
       ON DELETE CASCADE,
     UNIQUE (follower_id, followed_id)
 );
