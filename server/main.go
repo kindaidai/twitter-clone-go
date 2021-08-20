@@ -42,8 +42,11 @@ func main() {
 	router.GET("/", func(c *gin.Context) {
 		c.HTML(200, "index.html", gin.H{
 			"title": "twitter-clone-go",
-			"user":  user,
+			"name":  user.Name,
 		})
 	})
-	router.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+	router.GET("/signup", func(c *gin.Context) {
+		c.HTML(200, "signup.html", gin.H{})
+	})
+	router.Run() // listen and serve on 0.0.0.0:8080
 }
