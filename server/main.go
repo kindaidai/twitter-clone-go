@@ -100,9 +100,7 @@ func main() {
 		}
 	})
 	router.GET("/signup", func(c *gin.Context) {
-		c.HTML(200, "signup.html", gin.H{
-			"err": "",
-		})
+		c.HTML(200, "signup.html", gin.H{})
 	})
 	router.POST("/signup", func(c *gin.Context) {
 		name := c.PostForm("name")
@@ -118,6 +116,22 @@ func main() {
 
 		c.Redirect(302, "/")
 	})
+	router.GET("/signin", func(c *gin.Context) {
+		c.HTML(200, "signin.html", gin.H{})
+	})
+	// router.POST("/signup", func(c *gin.Context) {
+	// 	email := c.PostForm("email")
+	// 	password := c.PostForm("password")
+	// 	user, err := createUser(name, email, password)
+	// 	if err != nil {
+	// 		c.HTML(http.StatusBadRequest, "signup.html", gin.H{"err": err.Error()})
+	// 	}
+	// 	session := sessions.Default(c)
+	// 	session.Set("UserId", user.ID)
+	// 	session.Save()
+
+	// 	c.Redirect(302, "/")
+	// })
 
 	router.Run() // listen and serve on 0.0.0.0:8080
 }
