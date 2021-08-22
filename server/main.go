@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/mysql"
@@ -47,16 +49,28 @@ func dbConnect() *gorm.DB {
 	return db
 }
 
-func createUser(name string, email string, password string) (*gorm.DB, error) {
+func createUser(name string, email string, password string) (User, error) {
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), 13)
 	user := User{Name: name, Email: email, Password: hashedPassword}
 	db := dbConnect()
 	result := db.Create(&user)
 
 	if result.Error != nil {
-		return nil, result.Error
+		return user, result.Error
 	}
-	return result, nil
+	return user, nil
+}
+
+func loginUser(c *gin.Context) (User, *gorm.DB) {
+	db := dbConnect()
+	session := sessions.Default(c)
+	UserId := session.Get("UserId")
+	var user User
+	err := db.First(&user, UserId)
+	if err.Error != nil {
+		return user, err
+	}
+	return user, nil
 }
 
 func main() {
@@ -65,13 +79,25 @@ func main() {
 	// Migrate the schema
 	db.AutoMigrate(&User{}, &Tweet{}, &Follow{})
 
+	// routing
 	router := gin.Default()
 	router.LoadHTMLGlob("templates/*")
+	// session
+	store := cookie.NewStore([]byte("secret"))
+	router.Use(sessions.Sessions("mysession", store))
 
 	router.GET("/", func(c *gin.Context) {
-		c.HTML(200, "index.html", gin.H{
-			"title": "twitter-clone-go",
-		})
+		user, err := loginUser(c)
+		if err != nil {
+			c.HTML(200, "signup.html", gin.H{
+				"err": "",
+			})
+		} else {
+			c.HTML(200, "index.html", gin.H{
+				"title": "twitter-clone-go",
+				"name":  user.Name,
+			})
+		}
 	})
 	router.GET("/signup", func(c *gin.Context) {
 		c.HTML(200, "signup.html", gin.H{
@@ -82,10 +108,16 @@ func main() {
 		name := c.PostForm("name")
 		email := c.PostForm("email")
 		password := c.PostForm("password")
-		if _, err := createUser(name, email, password); err != nil {
+		user, err := createUser(name, email, password)
+		if err != nil {
 			c.HTML(http.StatusBadRequest, "signup.html", gin.H{"err": err.Error()})
 		}
+		session := sessions.Default(c)
+		session.Set("UserId", user.ID)
+		session.Save()
+
 		c.Redirect(302, "/")
 	})
+
 	router.Run() // listen and serve on 0.0.0.0:8080
 }
