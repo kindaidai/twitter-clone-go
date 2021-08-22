@@ -1,0 +1,12 @@
+<body>
+  <a href="/">Twitter Clone App</a>
+  <p>{{.err}}</p>
+  {{range $index, $user := .users}}
+    <div>
+      <form action="/follow" method="post">
+        <span>{{$user.Name}}</span>
+        <input type="submit" value="Follow!">
+      </form>
+    </div>
+  {{end}}
+</body>

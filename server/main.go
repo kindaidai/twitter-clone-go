@@ -11,6 +11,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 type User struct {
@@ -42,7 +43,9 @@ func dbConnect() *gorm.DB {
 	dbname := os.Getenv("MYSQL_DATABASE")
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:3306)/%s?charset=utf8&parseTime=True&loc=Local", user, pass, host, dbname)
 
-	db, err := gorm.Open(mysql.Open(dsn))
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Info),
+	})
 	if err != nil {
 		panic("failed DB connect")
 	}
@@ -101,6 +104,17 @@ func createTweet(content string, userId uint) (Tweet, error) {
 	return tweet, nil
 }
 
+func getUsers() ([]User, error) {
+	db := dbConnect()
+	var users []User
+	// TODO: impl pagination
+	result := db.Find(&users).Order("id DESC").Limit(10)
+	if result.Error != nil {
+		return users, result.Error
+	}
+	return users, nil
+}
+
 func main() {
 	db := dbConnect()
 
@@ -117,17 +131,17 @@ func main() {
 	router.GET("/", func(c *gin.Context) {
 		user, err := loginUser(c)
 		if err != nil {
-			c.HTML(200, "signin.html", gin.H{
+			c.HTML(http.StatusOK, "signin.html", gin.H{
 				"err": "",
 			})
 		} else {
-			c.HTML(200, "index.html", gin.H{
+			c.HTML(http.StatusOK, "index.html", gin.H{
 				"name": user.Name,
 			})
 		}
 	})
 	router.GET("/signup", func(c *gin.Context) {
-		c.HTML(200, "signup.html", gin.H{})
+		c.HTML(http.StatusOK, "signup.html", gin.H{})
 	})
 	router.POST("/signup", func(c *gin.Context) {
 		name := c.PostForm("name")
@@ -136,15 +150,16 @@ func main() {
 		user, err := createUser(name, email, password)
 		if err != nil {
 			c.HTML(http.StatusBadRequest, "signup.html", gin.H{"err": err.Error()})
+			return
 		}
 		session := sessions.Default(c)
 		session.Set("UserId", user.ID)
 		session.Save()
 
-		c.Redirect(302, "/")
+		c.Redirect(http.StatusFound, "/")
 	})
 	router.GET("/signin", func(c *gin.Context) {
-		c.HTML(200, "signin.html", gin.H{})
+		c.HTML(http.StatusOK, "signin.html", gin.H{})
 	})
 	router.POST("/signin", func(c *gin.Context) {
 		email := c.PostForm("email")
@@ -152,8 +167,9 @@ func main() {
 		_, err := authorize(email, password, c)
 		if err != nil {
 			c.HTML(http.StatusBadRequest, "signin.html", gin.H{"err": err.Error()})
+			return
 		}
-		c.Redirect(302, "/")
+		c.Redirect(http.StatusFound, "/")
 	})
 	router.POST("/tweet", func(c *gin.Context) {
 		session := sessions.Default(c)
@@ -162,8 +178,17 @@ func main() {
 		_, err := createTweet(content, UserId)
 		if err != nil {
 			c.HTML(http.StatusBadRequest, "index.html", gin.H{"err": err.Error()})
+			return
 		}
-		c.Redirect(302, "/")
+		c.Redirect(http.StatusFound, "/")
+	})
+	router.GET("/users", func(c *gin.Context) {
+		users, err := getUsers()
+		if err != nil {
+			c.HTML(http.StatusInternalServerError, "users.html", gin.H{"err": err.Error()})
+			return
+		}
+		c.HTML(http.StatusOK, "users.html", gin.H{"users": users})
 	})
 
 	router.Run() // listen and serve on 0.0.0.0:8080
