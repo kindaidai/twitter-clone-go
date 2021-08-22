@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
@@ -13,7 +15,7 @@ type User struct {
 	gorm.Model
 	Name     string `gorm:"unique;not null;type:varchar(20)"`
 	Email    string `gorm:"unique;not null;type:varchar(100)"`
-	Password string `gorm:"not null;type:varchar(255)"`
+	Password []byte `gorm:"not null"`
 }
 
 type Tweet struct {
@@ -45,6 +47,18 @@ func dbConnect() *gorm.DB {
 	return db
 }
 
+func createUser(name string, email string, password string) (*gorm.DB, error) {
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), 13)
+	user := User{Name: name, Email: email, Password: hashedPassword}
+	db := dbConnect()
+	result := db.Create(&user)
+
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return result, nil
+}
+
 func main() {
 	db := dbConnect()
 
@@ -60,7 +74,18 @@ func main() {
 		})
 	})
 	router.GET("/signup", func(c *gin.Context) {
-		c.HTML(200, "signup.html", gin.H{})
+		c.HTML(200, "signup.html", gin.H{
+			"err": "",
+		})
+	})
+	router.POST("/signup", func(c *gin.Context) {
+		name := c.PostForm("name")
+		email := c.PostForm("email")
+		password := c.PostForm("password")
+		if _, err := createUser(name, email, password); err != nil {
+			c.HTML(http.StatusBadRequest, "signup.html", gin.H{"err": err.Error()})
+		}
+		c.Redirect(302, "/")
 	})
 	router.Run() // listen and serve on 0.0.0.0:8080
 }

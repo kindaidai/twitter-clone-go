@@ -1,9 +1,18 @@
 <body>
     <h2>Sign up</h2>
+    <p>{{.err}}</p>
     <form action="/signup" method="post">
       <div>
         <label for="name">Enter your name: </label>
         <input type="text" name="name" required>
+      </div>
+      <div>
+        <label for="email">Enter your email: </label>
+        <input type="text" name="email">
+      </div>
+      <div>
+        <label for="password">Enter your password: </label>
+        <input type="text" name="password" required>
       </div>
       <div class="form-example">
         <input type="submit" value="Subscribe!">
