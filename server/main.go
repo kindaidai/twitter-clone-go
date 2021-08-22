@@ -23,15 +23,15 @@ type User struct {
 type Tweet struct {
 	gorm.Model
 	Content string `gorm:"not null;type:text"`
-	UserId  int    `gorm:"not null;constrant:OnDelete:CASCADE"`
+	UserId  uint   `gorm:"not null;constrant:OnDelete:CASCADE"`
 	User    User
 }
 
 type Follow struct {
 	gorm.Model
-	FollowerId int `gorm:"not null;constrant:OnDelete:CASCADE"`
+	FollowerId uint `gorm:"not null;constrant:OnDelete:CASCADE"`
 	Follower   User
-	FollowedId int `gorm:"not null;constrant:OnDelete:CASCADE"`
+	FollowedId uint `gorm:"not null;constrant:OnDelete:CASCADE"`
 	Followed   User
 }
 
@@ -90,6 +90,17 @@ func authorize(email string, password string, c *gin.Context) (User, error) {
 	return user, nil
 }
 
+func createTweet(content string, userId uint) (Tweet, error) {
+	db := dbConnect()
+	tweet := Tweet{Content: content, UserId: userId}
+	result := db.Create(&tweet)
+
+	if result.Error != nil {
+		return tweet, result.Error
+	}
+	return tweet, nil
+}
+
 func main() {
 	db := dbConnect()
 
@@ -111,8 +122,7 @@ func main() {
 			})
 		} else {
 			c.HTML(200, "index.html", gin.H{
-				"title": "twitter-clone-go",
-				"name":  user.Name,
+				"name": user.Name,
 			})
 		}
 	})
@@ -142,6 +152,16 @@ func main() {
 		_, err := authorize(email, password, c)
 		if err != nil {
 			c.HTML(http.StatusBadRequest, "signin.html", gin.H{"err": err.Error()})
+		}
+		c.Redirect(302, "/")
+	})
+	router.POST("/tweet", func(c *gin.Context) {
+		session := sessions.Default(c)
+		UserId := session.Get("UserId").(uint)
+		content := c.PostForm("content")
+		_, err := createTweet(content, UserId)
+		if err != nil {
+			c.HTML(http.StatusBadRequest, "index.html", gin.H{"err": err.Error()})
 		}
 		c.Redirect(302, "/")
 	})

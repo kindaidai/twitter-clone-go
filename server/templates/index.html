@@ -11,5 +11,14 @@
 	<body>
     <a href="/">Twitter Clone App</a>
     <p>Login User {{.name}}</p>
+
+    <form action="/tweet" method="post">
+      <div>
+        <textarea name="content" cols="30" rows="10"></textarea>
+      </div>
+      <div>
+        <input type="submit" value="Tweet!">
+      </div>
+    </form>
 	</body>
 </html>
