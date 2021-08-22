@@ -3,6 +3,7 @@ services:
   mysql:
     image: mysql:5.7
     volumes:
+      - ./mysql/tmp:/tmp
       - ./mysql/db:/docker-entrypoint-initdb.d
       - ./mysql/db/my.cnf:/etc/mysql/conf.d/my.cnf
     environment:

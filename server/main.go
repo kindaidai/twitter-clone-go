@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
@@ -11,10 +10,25 @@ import (
 )
 
 type User struct {
-	ID        int64 `gorm:"primaryKey"`
-	Name      string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	gorm.Model
+	Name     string `gorm:"unique;not null;type:varchar(20)"`
+	Email    string `gorm:"unique;not null;type:varchar(100)"`
+	Password string `gorm:"not null;type:varchar(255)"`
+}
+
+type Tweet struct {
+	gorm.Model
+	Content string `gorm:"not null;type:text"`
+	UserId  int    `gorm:"not null;constrant:OnDelete:CASCADE"`
+	User    User
+}
+
+type Follow struct {
+	gorm.Model
+	FollowerId int `gorm:"not null;constrant:OnDelete:CASCADE"`
+	Follower   User
+	FollowedId int `gorm:"not null;constrant:OnDelete:CASCADE"`
+	Followed   User
 }
 
 func dbConnect() *gorm.DB {
@@ -32,9 +46,10 @@ func dbConnect() *gorm.DB {
 }
 
 func main() {
-	var user User
 	db := dbConnect()
-	db.First(&user, 1)
+
+	// Migrate the schema
+	db.AutoMigrate(&User{}, &Tweet{}, &Follow{})
 
 	router := gin.Default()
 	router.LoadHTMLGlob("templates/*")
@@ -42,7 +57,6 @@ func main() {
 	router.GET("/", func(c *gin.Context) {
 		c.HTML(200, "index.html", gin.H{
 			"title": "twitter-clone-go",
-			"name":  user.Name,
 		})
 	})
 	router.GET("/signup", func(c *gin.Context) {
