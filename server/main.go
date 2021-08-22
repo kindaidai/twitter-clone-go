@@ -50,7 +50,7 @@ func dbConnect() *gorm.DB {
 }
 
 func createUser(name string, email string, password string) (User, error) {
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), 13)
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), 12)
 	user := User{Name: name, Email: email, Password: hashedPassword}
 	db := dbConnect()
 	result := db.Create(&user)
@@ -73,6 +73,23 @@ func loginUser(c *gin.Context) (User, *gorm.DB) {
 	return user, nil
 }
 
+func authorize(email string, password string, c *gin.Context) (User, error) {
+	db := dbConnect()
+	var user User
+	db_err := db.Where("email = ?", email).First(&user)
+	if db_err.Error != nil {
+		return user, db_err.Error
+	}
+	err := bcrypt.CompareHashAndPassword(user.Password, []byte(password))
+	if err != nil {
+		return user, err
+	}
+	session := sessions.Default(c)
+	session.Set("UserId", user.ID)
+	session.Save()
+	return user, nil
+}
+
 func main() {
 	db := dbConnect()
 
@@ -89,7 +106,7 @@ func main() {
 	router.GET("/", func(c *gin.Context) {
 		user, err := loginUser(c)
 		if err != nil {
-			c.HTML(200, "signup.html", gin.H{
+			c.HTML(200, "signin.html", gin.H{
 				"err": "",
 			})
 		} else {
@@ -119,19 +136,15 @@ func main() {
 	router.GET("/signin", func(c *gin.Context) {
 		c.HTML(200, "signin.html", gin.H{})
 	})
-	// router.POST("/signup", func(c *gin.Context) {
-	// 	email := c.PostForm("email")
-	// 	password := c.PostForm("password")
-	// 	user, err := createUser(name, email, password)
-	// 	if err != nil {
-	// 		c.HTML(http.StatusBadRequest, "signup.html", gin.H{"err": err.Error()})
-	// 	}
-	// 	session := sessions.Default(c)
-	// 	session.Set("UserId", user.ID)
-	// 	session.Save()
-
-	// 	c.Redirect(302, "/")
-	// })
+	router.POST("/signin", func(c *gin.Context) {
+		email := c.PostForm("email")
+		password := c.PostForm("password")
+		_, err := authorize(email, password, c)
+		if err != nil {
+			c.HTML(http.StatusBadRequest, "signin.html", gin.H{"err": err.Error()})
+		}
+		c.Redirect(302, "/")
+	})
 
 	router.Run() // listen and serve on 0.0.0.0:8080
 }
