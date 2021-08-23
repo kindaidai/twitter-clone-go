@@ -5,6 +5,7 @@
     <div>
       <form action="/follow" method="post">
         <span>{{$user.Name}}</span>
+        <input type="hidden" name="userId" value={{$user.ID}}>
         <input type="submit" value="Follow!">
       </form>
     </div>

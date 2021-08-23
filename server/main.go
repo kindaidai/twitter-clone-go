@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
@@ -108,11 +109,23 @@ func getUsers() ([]User, error) {
 	db := dbConnect()
 	var users []User
 	// TODO: impl pagination
+	// TODO: フォローしてるユーザーだけ表示したい
 	result := db.Find(&users).Order("id DESC").Limit(10)
 	if result.Error != nil {
 		return users, result.Error
 	}
 	return users, nil
+}
+
+func createFollow(followerId uint, followedId uint) (Follow, error) {
+	db := dbConnect()
+	follow := Follow{FollowerId: followerId, FollowedId: followedId}
+	result := db.Create(&follow)
+
+	if result.Error != nil {
+		return follow, result.Error
+	}
+	return follow, nil
 }
 
 func main() {
@@ -189,6 +202,18 @@ func main() {
 			return
 		}
 		c.HTML(http.StatusOK, "users.html", gin.H{"users": users})
+	})
+
+	router.POST("/follow", func(c *gin.Context) {
+		session := sessions.Default(c)
+		LoginUserId := session.Get("UserId").(uint)
+		UserId, _ := strconv.ParseUint(c.PostForm("userId"), 10, 64)
+		_, err := createFollow(LoginUserId, uint(UserId))
+		if err != nil {
+			c.HTML(http.StatusBadRequest, "users.html", gin.H{"err": err.Error()})
+			return
+		}
+		c.Redirect(http.StatusFound, "/users")
 	})
 
 	router.Run() // listen and serve on 0.0.0.0:8080
