@@ -105,12 +105,13 @@ func createTweet(content string, userId uint) (Tweet, error) {
 	return tweet, nil
 }
 
-func getUsers() ([]User, error) {
+func getUsers(LoginUserId uint) ([]User, error) {
 	db := dbConnect()
 	var users []User
+	var follows []Follow
 	// TODO: impl pagination
-	// TODO: フォローしてるユーザーだけ表示したい
-	result := db.Find(&users).Order("id DESC").Limit(10)
+	followUsers := db.Select("followed_id").Find(&follows).Where("follower_id = ?", LoginUserId)
+	result := db.Where("id NOT IN (?)", followUsers).Not("id = ?", LoginUserId).Find(&users)
 	if result.Error != nil {
 		return users, result.Error
 	}
@@ -196,7 +197,9 @@ func main() {
 		c.Redirect(http.StatusFound, "/")
 	})
 	router.GET("/users", func(c *gin.Context) {
-		users, err := getUsers()
+		session := sessions.Default(c)
+		UserId := session.Get("UserId").(uint)
+		users, err := getUsers(UserId)
 		if err != nil {
 			c.HTML(http.StatusInternalServerError, "users.html", gin.H{"err": err.Error()})
 			return
