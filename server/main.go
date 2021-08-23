@@ -65,12 +65,10 @@ func createUser(name string, email string, password string) (User, error) {
 	return user, nil
 }
 
-func loginUser(c *gin.Context) (User, *gorm.DB) {
+func loginUser(loginUserId uint, c *gin.Context) (User, *gorm.DB) {
 	db := dbConnect()
-	session := sessions.Default(c)
-	UserId := session.Get("UserId")
 	var user User
-	err := db.First(&user, UserId)
+	err := db.First(&user, loginUserId)
 	if err.Error != nil {
 		return user, err
 	}
@@ -156,14 +154,23 @@ func main() {
 	router.Use(sessions.Sessions("mysession", store))
 
 	router.GET("/", func(c *gin.Context) {
-		user, err := loginUser(c)
+		session := sessions.Default(c)
+		UserId := session.Get("UserId")
+		if UserId == nil {
+			c.HTML(http.StatusOK, "signin.html", gin.H{
+				"err": "ログインしてください",
+			})
+			return
+
+		}
+		user, err := loginUser(UserId.(uint), c)
 		if err != nil {
 			c.HTML(http.StatusInternalServerError, "signin.html", gin.H{
 				"err": err,
 			})
 			return
 		}
-		tweets, error := getTweets(user.ID)
+		tweets, error := getTweets(UserId.(uint))
 		if error != nil {
 			c.HTML(http.StatusInternalServerError, "signin.html", gin.H{
 				"err": error,
