@@ -105,13 +105,13 @@ func createTweet(content string, userId uint) (Tweet, error) {
 	return tweet, nil
 }
 
-func getUsers(LoginUserId uint) ([]User, error) {
+func getUsers(loginUserId uint) ([]User, error) {
 	db := dbConnect()
 	var users []User
 	var follows []Follow
 	// TODO: impl pagination
-	followUsers := db.Select("followed_id").Find(&follows).Where("follower_id = ?", LoginUserId)
-	result := db.Where("id NOT IN (?)", followUsers).Not("id = ?", LoginUserId).Find(&users)
+	followUsers := db.Select("followed_id").Where("follower_id = ?", loginUserId).Find(&follows)
+	result := db.Where("id NOT IN (?)", followUsers).Not("id = ?", loginUserId).Order("id DESC").Find(&users)
 	if result.Error != nil {
 		return users, result.Error
 	}
@@ -127,6 +127,19 @@ func createFollow(followerId uint, followedId uint) (Follow, error) {
 		return follow, result.Error
 	}
 	return follow, nil
+}
+
+func getTweets(loginUserId uint) ([]Tweet, error) {
+	db := dbConnect()
+	var tweets []Tweet
+	var follows []Follow
+	// TODO: impl pagination
+	followUsers := db.Select("followed_id").Where("follower_id = ?", loginUserId).Find(&follows)
+	result := db.Preload("User").Where("user_id IN (?)", followUsers).Or("user_id = ?", loginUserId).Order("id DESC").Find(&tweets)
+	if result.Error != nil {
+		return tweets, result.Error
+	}
+	return tweets, nil
 }
 
 func main() {
@@ -145,14 +158,22 @@ func main() {
 	router.GET("/", func(c *gin.Context) {
 		user, err := loginUser(c)
 		if err != nil {
-			c.HTML(http.StatusOK, "signin.html", gin.H{
-				"err": "",
+			c.HTML(http.StatusInternalServerError, "signin.html", gin.H{
+				"err": err,
 			})
-		} else {
-			c.HTML(http.StatusOK, "index.html", gin.H{
-				"name": user.Name,
-			})
+			return
 		}
+		tweets, error := getTweets(user.ID)
+		if error != nil {
+			c.HTML(http.StatusInternalServerError, "signin.html", gin.H{
+				"err": error,
+			})
+			return
+		}
+		c.HTML(http.StatusOK, "index.html", gin.H{
+			"name":   user.Name,
+			"tweets": tweets,
+		})
 	})
 	router.GET("/signup", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "signup.html", gin.H{})

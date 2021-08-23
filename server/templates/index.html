@@ -9,17 +9,31 @@
 		<link rel="stylesheet" href="">
 	</head>
 	<body>
-    <a href="/">Twitter Clone App</a>
-    <a href="/users">User一覧</a>
-    <p>Login User {{.name}}</p>
-
-    <form action="/tweet" method="post">
-      <div>
-        <textarea name="content" cols="30" rows="10"></textarea>
-      </div>
-      <div>
-        <input type="submit" value="Tweet!">
-      </div>
-    </form>
+    <div style="
+      margin-left: auto;
+      margin-right: auto;
+      width: 400px;
+      border: 1px solid;
+      text-align: center;"
+    >
+      <a href="/">Twitter Clone App</a>
+      <a href="/users">User一覧</a>
+      <p>Login User {{.name}}</p>
+      <form action="/tweet" method="post">
+        <div>
+          <textarea name="content" cols="30" rows="10"></textarea>
+        </div>
+        <div>
+          <input type="submit" value="Tweet!">
+        </div>
+      </form>
+      {{range $index, $tweet := .tweets}}
+        <div style="border-top: 1px solid;">
+          <span>{{$tweet.User.Name}}</span>
+          <span>{{$tweet.CreatedAt.Format "2006/01/02 15:04:05"}}</span>
+          <p>{{$tweet.Content}}</p>
+        </div>
+      {{end}}
+    </div>
 	</body>
 </html>
