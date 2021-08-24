@@ -17,24 +17,25 @@ import (
 
 type User struct {
 	gorm.Model
-	Name     string `gorm:"unique;not null;type:varchar(20)"`
-	Email    string `gorm:"unique;not null;type:varchar(100)"`
-	Password []byte `gorm:"not null"`
+	Name     string  `gorm:"unique;not null;type:varchar(20)"`
+	Email    string  `gorm:"unique;not null;type:varchar(100)"`
+	Password []byte  `gorm:"not null"`
+	Tweets   []Tweet `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 }
 
 type Tweet struct {
 	gorm.Model
 	Content string `gorm:"not null;type:text"`
-	UserId  uint   `gorm:"not null;constrant:OnDelete:CASCADE"`
+	UserId  uint   `gorm:"not null;"`
 	User    User
 }
 
 type Follow struct {
 	gorm.Model
-	FollowerId uint `gorm:"not null;constrant:OnDelete:CASCADE"`
-	Follower   User
-	FollowedId uint `gorm:"not null;constrant:OnDelete:CASCADE"`
-	Followed   User
+	FollowerId uint `gorm:"not null"`
+	Follower   User `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	FollowedId uint `gorm:"not null;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	Followed   User `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 }
 
 func dbConnect() *gorm.DB {
