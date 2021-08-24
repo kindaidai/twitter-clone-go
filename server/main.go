@@ -54,10 +54,9 @@ func dbConnect() *gorm.DB {
 	return db
 }
 
-func createUser(name string, email string, password string) (User, error) {
+func createUser(name string, email string, password string, db *gorm.DB) (User, error) {
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), 12)
 	user := User{Name: name, Email: email, Password: hashedPassword}
-	db := dbConnect()
 	result := db.Create(&user)
 
 	if result.Error != nil {
@@ -66,8 +65,7 @@ func createUser(name string, email string, password string) (User, error) {
 	return user, nil
 }
 
-func loginUser(loginUserId uint, c *gin.Context) (User, *gorm.DB) {
-	db := dbConnect()
+func loginUser(loginUserId uint, c *gin.Context, db *gorm.DB) (User, *gorm.DB) {
 	var user User
 	err := db.First(&user, loginUserId)
 	if err.Error != nil {
@@ -76,8 +74,7 @@ func loginUser(loginUserId uint, c *gin.Context) (User, *gorm.DB) {
 	return user, nil
 }
 
-func authorize(email string, password string, c *gin.Context) (User, error) {
-	db := dbConnect()
+func authorize(email string, password string, c *gin.Context, db *gorm.DB) (User, error) {
 	var user User
 	db_err := db.Where("email = ?", email).First(&user)
 	if db_err.Error != nil {
@@ -93,8 +90,7 @@ func authorize(email string, password string, c *gin.Context) (User, error) {
 	return user, nil
 }
 
-func createTweet(content string, userId uint) (Tweet, error) {
-	db := dbConnect()
+func createTweet(content string, userId uint, db *gorm.DB) (Tweet, error) {
 	tweet := Tweet{Content: content, UserId: userId}
 	result := db.Create(&tweet)
 
@@ -104,8 +100,7 @@ func createTweet(content string, userId uint) (Tweet, error) {
 	return tweet, nil
 }
 
-func getUsers(loginUserId uint) ([]User, error) {
-	db := dbConnect()
+func getUsers(loginUserId uint, db *gorm.DB) ([]User, error) {
 	var users []User
 	var follows []Follow
 	var followUserIds []uint
@@ -120,8 +115,7 @@ func getUsers(loginUserId uint) ([]User, error) {
 	return users, nil
 }
 
-func createFollow(followerId uint, followedId uint) (Follow, error) {
-	db := dbConnect()
+func createFollow(followerId uint, followedId uint, db *gorm.DB) (Follow, error) {
 	follow := Follow{FollowerId: followerId, FollowedId: followedId}
 	result := db.Create(&follow)
 
@@ -131,8 +125,7 @@ func createFollow(followerId uint, followedId uint) (Follow, error) {
 	return follow, nil
 }
 
-func getTweets(loginUserId uint) ([]Tweet, error) {
-	db := dbConnect()
+func getTweets(loginUserId uint, db *gorm.DB) ([]Tweet, error) {
 	var tweets []Tweet
 	var follows []Follow
 	var followUserIds []uint
@@ -145,6 +138,25 @@ func getTweets(loginUserId uint) ([]Tweet, error) {
 		return tweets, result.Error
 	}
 	return tweets, nil
+}
+
+func getSessionUserId(c *gin.Context) interface{} {
+	session := sessions.Default(c)
+	return session.Get("UserId")
+}
+
+func loginCheckMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		UserId := getSessionUserId(c)
+
+		if UserId == nil {
+			c.HTML(http.StatusOK, "signin.html", gin.H{
+				"err": "ログインしてください",
+			})
+			return
+		}
+		c.Next()
+	}
 }
 
 func main() {
@@ -160,24 +172,57 @@ func main() {
 	store := cookie.NewStore([]byte("secret"))
 	router.Use(sessions.Sessions("mysession", store))
 
+	loginGroup := router.Group("/")
+	loginGroup.Use(loginCheckMiddleware())
+	{
+		loginGroup.POST("/tweet", func(c *gin.Context) {
+			UserId := getSessionUserId(c)
+			content := c.PostForm("content")
+			_, err := createTweet(content, UserId.(uint), db)
+			if err != nil {
+				c.HTML(http.StatusBadRequest, "index.html", gin.H{"err": err.Error()})
+				return
+			}
+			c.Redirect(http.StatusFound, "/")
+		})
+		loginGroup.GET("/users", func(c *gin.Context) {
+			UserId := getSessionUserId(c)
+			users, err := getUsers(UserId.(uint), db)
+			if err != nil {
+				c.HTML(http.StatusInternalServerError, "users.html", gin.H{"err": err.Error()})
+				return
+			}
+			c.HTML(http.StatusOK, "users.html", gin.H{"users": users})
+		})
+
+		loginGroup.POST("/follow", func(c *gin.Context) {
+			UserId := getSessionUserId(c)
+			FollowedId, _ := strconv.ParseUint(c.PostForm("userId"), 10, 64)
+			_, err := createFollow(UserId.(uint), uint(FollowedId), db)
+			if err != nil {
+				c.HTML(http.StatusBadRequest, "users.html", gin.H{"err": err.Error()})
+				return
+			}
+			c.Redirect(http.StatusFound, "/users")
+		})
+
+	}
 	router.GET("/", func(c *gin.Context) {
-		session := sessions.Default(c)
-		UserId := session.Get("UserId")
+		UserId := getSessionUserId(c)
 		if UserId == nil {
 			c.HTML(http.StatusOK, "signin.html", gin.H{
 				"err": "ログインしてください",
 			})
 			return
-
 		}
-		user, err := loginUser(UserId.(uint), c)
+		user, err := loginUser(UserId.(uint), c, db)
 		if err != nil {
 			c.HTML(http.StatusInternalServerError, "signin.html", gin.H{
 				"err": err,
 			})
 			return
 		}
-		tweets, error := getTweets(UserId.(uint))
+		tweets, error := getTweets(UserId.(uint), db)
 		if error != nil {
 			c.HTML(http.StatusInternalServerError, "signin.html", gin.H{
 				"err": error,
@@ -196,7 +241,7 @@ func main() {
 		name := c.PostForm("name")
 		email := c.PostForm("email")
 		password := c.PostForm("password")
-		user, err := createUser(name, email, password)
+		user, err := createUser(name, email, password, db)
 		if err != nil {
 			c.HTML(http.StatusBadRequest, "signup.html", gin.H{"err": err.Error()})
 			return
@@ -213,45 +258,12 @@ func main() {
 	router.POST("/signin", func(c *gin.Context) {
 		email := c.PostForm("email")
 		password := c.PostForm("password")
-		_, err := authorize(email, password, c)
+		_, err := authorize(email, password, c, db)
 		if err != nil {
 			c.HTML(http.StatusBadRequest, "signin.html", gin.H{"err": err.Error()})
 			return
 		}
 		c.Redirect(http.StatusFound, "/")
-	})
-	router.POST("/tweet", func(c *gin.Context) {
-		session := sessions.Default(c)
-		UserId := session.Get("UserId").(uint)
-		content := c.PostForm("content")
-		_, err := createTweet(content, UserId)
-		if err != nil {
-			c.HTML(http.StatusBadRequest, "index.html", gin.H{"err": err.Error()})
-			return
-		}
-		c.Redirect(http.StatusFound, "/")
-	})
-	router.GET("/users", func(c *gin.Context) {
-		session := sessions.Default(c)
-		UserId := session.Get("UserId").(uint)
-		users, err := getUsers(UserId)
-		if err != nil {
-			c.HTML(http.StatusInternalServerError, "users.html", gin.H{"err": err.Error()})
-			return
-		}
-		c.HTML(http.StatusOK, "users.html", gin.H{"users": users})
-	})
-
-	router.POST("/follow", func(c *gin.Context) {
-		session := sessions.Default(c)
-		LoginUserId := session.Get("UserId").(uint)
-		UserId, _ := strconv.ParseUint(c.PostForm("userId"), 10, 64)
-		_, err := createFollow(LoginUserId, uint(UserId))
-		if err != nil {
-			c.HTML(http.StatusBadRequest, "users.html", gin.H{"err": err.Error()})
-			return
-		}
-		c.Redirect(http.StatusFound, "/users")
 	})
 
 	router.Run() // listen and serve on 0.0.0.0:8080
