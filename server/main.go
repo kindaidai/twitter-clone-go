@@ -108,9 +108,12 @@ func getUsers(loginUserId uint) ([]User, error) {
 	db := dbConnect()
 	var users []User
 	var follows []Follow
+	var followUserIds []uint
+
+	db.Select("followed_id").Where("follower_id = ?", loginUserId).Find(&follows).Pluck("followed_id", &followUserIds)
 	// TODO: impl pagination
-	followUsers := db.Select("followed_id").Where("follower_id = ?", loginUserId).Find(&follows)
-	result := db.Where("id NOT IN (?)", followUsers).Not("id = ?", loginUserId).Order("id DESC").Find(&users)
+	result := db.Where("id NOT IN (?)", append(followUserIds, loginUserId)).Order("id DESC").Find(&users)
+
 	if result.Error != nil {
 		return users, result.Error
 	}
@@ -132,9 +135,12 @@ func getTweets(loginUserId uint) ([]Tweet, error) {
 	db := dbConnect()
 	var tweets []Tweet
 	var follows []Follow
+	var followUserIds []uint
+
+	db.Select("followed_id").Where("follower_id = ?", loginUserId).Find(&follows).Pluck("followed_id", &followUserIds)
 	// TODO: impl pagination
-	followUsers := db.Select("followed_id").Where("follower_id = ?", loginUserId).Find(&follows)
-	result := db.Preload("User").Where("user_id IN (?)", followUsers).Or("user_id = ?", loginUserId).Order("id DESC").Find(&tweets)
+	result := db.Preload("User").Where("user_id IN (?)", append(followUserIds, loginUserId)).Order("id DESC").Find(&tweets)
+
 	if result.Error != nil {
 		return tweets, result.Error
 	}
