@@ -159,11 +159,33 @@ func loginCheckMiddleware() gin.HandlerFunc {
 	}
 }
 
+func prepareSeedData(db *gorm.DB) error {
+	for i := 0; i < 10; i++ {
+		hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("password"), 12)
+		num := strconv.Itoa(i)
+		user := User{Name: "test" + num, Email: "test" + num + "@example.com", Password: hashedPassword}
+		result := db.Create(&user)
+		for i := 0; i < 3; i++ {
+			tweetNum := strconv.Itoa(i)
+			tweet := Tweet{Content: tweetNum + "回目のツイート!", UserId: user.ID}
+			result := db.Create(&tweet)
+			if result.Error != nil {
+				return result.Error
+			}
+		}
+		if result.Error != nil {
+			return result.Error
+		}
+	}
+	return nil
+}
+
 func main() {
 	db := dbConnect()
 
 	// Migrate the schema
 	db.AutoMigrate(&User{}, &Tweet{}, &Follow{})
+	prepareSeedData(db)
 
 	// routing
 	router := gin.Default()
